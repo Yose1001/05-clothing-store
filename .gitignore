@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment variables (ห้าม commit ความลับขึ้น git)
+.env
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
