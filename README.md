@@ -21,8 +21,10 @@
 | ส่วน | เทคโนโลยี |
 |------|-----------|
 | Frontend | React 18 + Vite (JavaScript, JSX, CSS) + React Router |
-| State ตะกร้าสินค้า | React Context API + localStorage |
+| State ส่วนกลาง | React Context API (ตะกร้าสินค้า + ระบบแจ้งเตือน) + localStorage |
+| กราฟ Dashboard | recharts |
 | Backend | Node.js + Express (REST API) |
+| อัปโหลดไฟล์ | multer (เก็บใน Docker volume) |
 | Database | MongoDB (ผ่าน Mongoose) |
 | Authentication | JWT (JSON Web Token) + bcrypt |
 | Deployment | Docker + Docker Compose |
@@ -86,10 +88,12 @@
 |---------------|---------|
 | `src/main.jsx` | จุดเริ่มต้นแอป ครอบ `BrowserRouter` + `CartProvider` |
 | `src/App.jsx` | Navbar (มี badge จำนวนสินค้าในตะกร้า) + routing ทุกหน้า |
-| `src/api.js` | ตัวกลางเรียก API แนบ JWT token อัตโนมัติ |
+| `src/api.js` | ตัวกลางเรียก API แนบ JWT token อัตโนมัติ + ดักจับ session หมดอายุ |
 | `src/context/CartContext.jsx` | state ตะกร้าที่ใช้ร่วมกันทุกหน้า + sync localStorage |
+| `src/context/ToastContext.jsx` | ระบบแจ้งเตือนกลาง (สำเร็จ/เตือน/ผิดพลาด พร้อมสาเหตุ) |
 | `src/utils.js` | ค่าคงที่และฟังก์ชันที่ใช้ร่วมกัน (หมวดหมู่, สถานะ, format ราคา/วันที่) |
 | `src/pages/` | หน้าจอทั้งหมด: หน้าร้าน, รายละเอียดสินค้า, ตะกร้า, checkout, ออเดอร์, login/register, หลังร้าน |
+| `src/pages/AdminDashboard.jsx` | Dashboard ยอดขาย: การ์ดสถิติ + กราฟ 7 วัน + Top 5 |
 | `nginx.conf` | เสิร์ฟ SPA + ส่งต่อ `/api` ไป backend |
 
 ### 3.2 โฟลเดอร์ `backend/` — ส่วนประมวลผล (Server / REST API)
@@ -100,8 +104,8 @@
 | `src/config/db.js` | เชื่อมต่อ MongoDB |
 | `src/models/` | Schema: `User`, `Product` (มี stock/sizes), `Order` (เก็บราคา ณ ตอนซื้อ) |
 | `src/routes/` | เส้นทาง API: auth, products, orders |
-| `src/controllers/` | Logic จริง: ตัดสต็อก atomic + rollback, state machine สถานะออเดอร์ |
-| `src/middleware/` | เช็ค JWT token และสิทธิ์ admin |
+| `src/controllers/` | Logic จริง: ตัดสต็อก atomic + rollback, state machine, aggregation สถิติ |
+| `src/middleware/` | เช็ค JWT token, สิทธิ์ admin และตรวจไฟล์อัปโหลด (multer) |
 | `src/seed.js` | สินค้า demo 13 รายการ + บัญชี admin (สร้างเฉพาะตอน DB ว่าง) |
 
 ---
