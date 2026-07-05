@@ -43,6 +43,7 @@ export const api = {
     request('/orders', { method: 'POST', body: JSON.stringify(body) }),
   getMyOrders: () => request('/orders/me'),
   getAllOrders: () => request('/orders'),
+  getOrderStats: () => request('/orders/stats'),
   updateOrderStatus: (id, status) =>
     request(`/orders/${id}/status`, {
       method: 'PATCH',

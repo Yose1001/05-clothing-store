@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import AdminDashboard from './AdminDashboard';
 import {
   CATEGORIES,
   ORDER_STATUS,
@@ -23,7 +24,7 @@ const NEXT_STATUS = {
 };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('orders');
+  const [tab, setTab] = useState('dashboard');
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -110,6 +111,12 @@ export default function AdminPage() {
     <div className="page">
       <div className="chips">
         <button
+          className={`chip ${tab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setTab('dashboard')}
+        >
+          📊 Dashboard
+        </button>
+        <button
           className={`chip ${tab === 'orders' ? 'active' : ''}`}
           onClick={() => setTab('orders')}
         >
@@ -124,6 +131,8 @@ export default function AdminPage() {
       </div>
 
       {error && <p className="error">{error}</p>}
+
+      {tab === 'dashboard' && <AdminDashboard />}
 
       {tab === 'orders' && (
         <div className="card">

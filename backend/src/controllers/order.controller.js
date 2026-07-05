@@ -90,6 +90,87 @@ exports.createOrder = async (req, res) => {
   }
 };
 
+// สถานะที่นับเป็น "ยอดขาย" — pending ยังไม่จ่ายเงิน / cancelled คืนของแล้ว
+const REVENUE_STATUSES = ['paid', 'shipped', 'completed'];
+
+// GET /api/orders/stats — (admin) สรุปยอดขายด้วย MongoDB Aggregation
+exports.getStats = async (req, res) => {
+  try {
+    // ย้อนหลัง 7 วัน (รวมวันนี้) เริ่มนับตั้งแต่เที่ยงคืน
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    // ยอดรวมทั้งร้าน
+    const [totals] = await Order.aggregate([
+      { $match: { status: { $in: REVENUE_STATUSES } } },
+      {
+        $group: {
+          _id: null,
+          revenue: { $sum: '$totalAmount' },
+          orders: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // ยอดขายรายวัน 7 วันล่าสุด (จัดกลุ่มตามวันที่เวลาไทย)
+    const daily = await Order.aggregate([
+      {
+        $match: {
+          status: { $in: REVENUE_STATUSES },
+          createdAt: { $gte: sevenDaysAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$createdAt',
+              timezone: 'Asia/Bangkok',
+            },
+          },
+          revenue: { $sum: '$totalAmount' },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // สินค้าขายดี Top 5 — แตก items ออกมานับทีละชิ้น
+    const topProducts = await Order.aggregate([
+      { $match: { status: { $in: REVENUE_STATUSES } } },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.name',
+          quantity: { $sum: '$items.quantity' },
+          revenue: {
+            $sum: { $multiply: ['$items.price', '$items.quantity'] },
+          },
+        },
+      },
+      { $sort: { quantity: -1 } },
+      { $limit: 5 },
+    ]);
+
+    // นับออเดอร์แยกตามสถานะ (รวมทุกสถานะ)
+    const statusCounts = await Order.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      totalRevenue: totals?.revenue || 0,
+      totalOrders: totals?.orders || 0,
+      daily,
+      topProducts,
+      statusCounts,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // GET /api/orders/me — ออเดอร์ของตัวเอง
 exports.getMyOrders = async (req, res) => {
   try {
