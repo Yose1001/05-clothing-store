@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -10,15 +10,29 @@ import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
 import { auth } from './api';
 import { useCart } from './context/CartContext';
+import { useToast } from './context/ToastContext';
 
 export default function App() {
   const [user, setUser] = useState(auth.user());
   const { count } = useCart();
   const navigate = useNavigate();
+  const toast = useToast();
+
+  // token หมดอายุ/ถูกปฏิเสธระหว่างใช้งาน → แจ้งสาเหตุแล้วพาไป login
+  useEffect(() => {
+    const onExpired = (e) => {
+      setUser(null);
+      toast.error(`${e.detail} — กรุณาเข้าสู่ระบบใหม่อีกครั้ง`);
+      navigate('/login');
+    };
+    window.addEventListener('auth:expired', onExpired);
+    return () => window.removeEventListener('auth:expired', onExpired);
+  }, []);
 
   const handleLogout = () => {
     auth.logout();
     setUser(null);
+    toast.success('ออกจากระบบแล้ว');
     navigate('/');
   };
 

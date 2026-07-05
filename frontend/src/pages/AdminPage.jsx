@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import AdminDashboard from './AdminDashboard';
 import {
   CATEGORIES,
@@ -32,16 +33,19 @@ export default function AdminPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [imageFile, setImageFile] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   const loadOrders = () =>
-    api.getAllOrders().then(setOrders).catch((e) => setError(e.message));
+    api
+      .getAllOrders()
+      .then(setOrders)
+      .catch((e) => toast.error(`โหลดออเดอร์ไม่สำเร็จ: ${e.message}`));
   const loadProducts = () =>
     api
       .getProducts({ page: 1 })
       .then((d) => setProducts(d.products))
-      .catch((e) => setError(e.message));
+      .catch((e) => toast.error(`โหลดสินค้าไม่สำเร็จ: ${e.message}`));
 
   useEffect(() => {
     loadOrders();
@@ -50,11 +54,14 @@ export default function AdminPage() {
 
   // ---------- จัดการออเดอร์ ----------
   const advanceStatus = async (order) => {
+    const next = NEXT_STATUS[order.status];
     try {
-      await api.updateOrderStatus(order._id, NEXT_STATUS[order.status]);
+      await api.updateOrderStatus(order._id, next);
+      toast.success(`อัปเดตออเดอร์เป็น "${ORDER_STATUS[next].label}" แล้ว`);
       await loadOrders();
     } catch (e) {
-      setError(e.message);
+      // เช่น "เปลี่ยนสถานะจาก paid เป็น completed ไม่ได้"
+      toast.error(`เปลี่ยนสถานะไม่สำเร็จ: ${e.message}`);
     }
   };
 
@@ -62,9 +69,10 @@ export default function AdminPage() {
     if (!confirm('ยกเลิกออเดอร์นี้และคืนสต็อก?')) return;
     try {
       await api.updateOrderStatus(order._id, 'cancelled');
+      toast.success('ยกเลิกออเดอร์และคืนสต็อกแล้ว');
       await Promise.all([loadOrders(), loadProducts()]);
     } catch (e) {
-      setError(e.message);
+      toast.error(`ยกเลิกไม่สำเร็จ: ${e.message}`);
     }
   };
 
@@ -72,9 +80,33 @@ export default function AdminPage() {
   const handleFormChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  // เช็คไฟล์รูปทันทีที่เลือก — ไม่ต้องรอกดบันทึกแล้วค่อยรู้ว่าผิด
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      toast.error(
+        `ไฟล์ "${file.name}" ไม่ใช่รูปภาพที่รองรับ — ใช้ได้เฉพาะ jpg, png, webp`
+      );
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(
+        `ไฟล์ใหญ่ ${(file.size / 1024 / 1024).toFixed(1)}MB — เกินกำหนด 5MB`
+      );
+      e.target.value = '';
+      return;
+    }
+    setImageFile(file);
+  };
+
   const submitProduct = async (e) => {
     e.preventDefault();
-    setError('');
     setSaving(true);
     try {
       // ถ้าเลือกรูปใหม่ อัปโหลดก่อน แล้วเอา URL ที่ได้ใส่ในตัวสินค้า
@@ -92,15 +124,17 @@ export default function AdminPage() {
       };
       if (editingId) {
         await api.updateProduct(editingId, body);
+        toast.success(`แก้ไขสินค้า "${form.name}" สำเร็จ`);
       } else {
         await api.createProduct(body);
+        toast.success(`เพิ่มสินค้า "${form.name}" สำเร็จ`);
       }
       setForm(EMPTY_FORM);
       setImageFile(null);
       setEditingId(null);
       await loadProducts();
     } catch (err) {
-      setError(err.message);
+      toast.error(`บันทึกสินค้าไม่สำเร็จ: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -119,13 +153,14 @@ export default function AdminPage() {
     });
   };
 
-  const deleteProduct = async (id) => {
-    if (!confirm('ลบสินค้านี้ใช่ไหม?')) return;
+  const deleteProduct = async (p) => {
+    if (!confirm(`ลบสินค้า "${p.name}" ใช่ไหม?`)) return;
     try {
-      await api.deleteProduct(id);
+      await api.deleteProduct(p._id);
+      toast.success(`ลบสินค้า "${p.name}" แล้ว`);
       await loadProducts();
     } catch (err) {
-      setError(err.message);
+      toast.error(`ลบสินค้าไม่สำเร็จ: ${err.message}`);
     }
   };
 
@@ -151,8 +186,6 @@ export default function AdminPage() {
           👕 สินค้า ({products.length})
         </button>
       </div>
-
-      {error && <p className="error">{error}</p>}
 
       {tab === 'dashboard' && <AdminDashboard />}
 
@@ -270,7 +303,7 @@ export default function AdminPage() {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => setImageFile(e.target.files[0] || null)}
+                  onChange={handleFileChange}
                 />
               </label>
               {(imageFile || form.imageUrl) && (
@@ -341,7 +374,7 @@ export default function AdminPage() {
                           <button className="btn-small" onClick={() => startEdit(p)}>
                             แก้ไข
                           </button>
-                          <button className="btn-cancel" onClick={() => deleteProduct(p._id)}>
+                          <button className="btn-cancel" onClick={() => deleteProduct(p)}>
                             ลบ
                           </button>
                         </div>

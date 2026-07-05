@@ -2,33 +2,47 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 import { CATEGORY_EMOJI, formatPrice } from '../utils';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const { addItem } = useCart();
+  const { items, addItem } = useCart();
   const [product, setProduct] = useState(null);
   const [size, setSize] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [error, setError] = useState('');
-  const [added, setAdded] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const toast = useToast();
 
   useEffect(() => {
-    api.getProduct(id).then(setProduct).catch((err) => setError(err.message));
+    api
+      .getProduct(id)
+      .then(setProduct)
+      .catch((err) => setLoadError(err.message));
   }, [id]);
 
-  if (error) return <p className="error">{error}</p>;
+  if (loadError) return <p className="error">{loadError}</p>;
   if (!product) return <p className="hint center">กำลังโหลด...</p>;
 
   const handleAdd = () => {
     if (!size) {
-      setError('กรุณาเลือกไซซ์ก่อน');
+      toast.warning('ยังไม่ได้เลือกไซซ์ — กรุณาเลือกไซซ์ก่อนเพิ่มลงตะกร้า');
       return;
     }
-    setError('');
+
+    // กันเพิ่มเกินสต็อกตั้งแต่ฝั่งหน้าเว็บ พร้อมบอกสาเหตุชัด ๆ
+    const inCart = items
+      .filter((i) => i.productId === product._id)
+      .reduce((sum, i) => sum + i.quantity, 0);
+    if (inCart + quantity > product.stock) {
+      toast.warning(
+        `เพิ่มไม่ได้ — สต็อกมี ${product.stock} ชิ้น แต่มีในตะกร้าแล้ว ${inCart} ชิ้น`
+      );
+      return;
+    }
+
     addItem(product, size, quantity);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+    toast.success(`เพิ่ม "${product.name}" ไซซ์ ${size} × ${quantity} ลงตะกร้าแล้ว`);
   };
 
   return (
@@ -80,9 +94,6 @@ export default function ProductDetailPage() {
               +
             </button>
           </div>
-
-          {error && <p className="error">{error}</p>}
-          {added && <p className="success">เพิ่มลงตะกร้าแล้ว ✓</p>}
 
           <button
             type="submit"

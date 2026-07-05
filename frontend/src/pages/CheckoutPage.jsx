@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 import { formatPrice } from '../utils';
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
   const [form, setForm] = useState({ name: '', phone: '', address: '' });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       await api.createOrder({
@@ -28,10 +28,11 @@ export default function CheckoutPage() {
         shippingAddress: form,
       });
       clearCart();
-      alert('สั่งซื้อสำเร็จ!');
+      toast.success('สั่งซื้อสำเร็จ! ติดตามสถานะได้ที่หน้าออเดอร์ของฉัน');
       navigate('/orders');
     } catch (err) {
-      setError(err.message);
+      // backend บอกสาเหตุมาให้แล้ว เช่น "สินค้า X มีไม่พอ (เหลือ 3 ชิ้น)"
+      toast.error(`สั่งซื้อไม่สำเร็จ: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,6 @@ export default function CheckoutPage() {
               required
             />
           </label>
-          {error && <p className="error">{error}</p>}
           <button type="submit" disabled={loading}>
             {loading ? 'กำลังสั่งซื้อ...' : `ยืนยันสั่งซื้อ ${formatPrice(total)}`}
           </button>

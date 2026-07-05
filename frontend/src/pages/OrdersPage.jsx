@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import { ORDER_STATUS, formatDateTime, formatPrice } from '../utils';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [error, setError] = useState('');
+  const toast = useToast();
 
   const load = () =>
-    api.getMyOrders().then(setOrders).catch((err) => setError(err.message));
+    api
+      .getMyOrders()
+      .then(setOrders)
+      .catch((err) => toast.error(`โหลดออเดอร์ไม่สำเร็จ: ${err.message}`));
 
   useEffect(() => {
     load();
@@ -17,16 +21,17 @@ export default function OrdersPage() {
     if (!confirm('ต้องการยกเลิกออเดอร์นี้ใช่ไหม?')) return;
     try {
       await api.cancelMyOrder(id);
+      toast.success('ยกเลิกออเดอร์แล้ว — คืนสต็อกสินค้าให้เรียบร้อย');
       await load();
     } catch (err) {
-      setError(err.message);
+      // เช่น "ยกเลิกได้เฉพาะออเดอร์ที่ยังไม่ชำระเงิน"
+      toast.error(`ยกเลิกไม่สำเร็จ: ${err.message}`);
     }
   };
 
   return (
     <div className="page">
       <h2 className="page-title">📋 ออเดอร์ของฉัน ({orders.length})</h2>
-      {error && <p className="error">{error}</p>}
       {orders.length === 0 && <p className="hint center">ยังไม่มีคำสั่งซื้อ</p>}
 
       {orders.map((order) => (

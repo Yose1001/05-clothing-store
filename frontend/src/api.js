@@ -11,6 +11,17 @@ async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
 
+  // token หมดอายุ/ใช้ไม่ได้ ทั้งที่เคย login แล้ว → แจ้งทั้งแอปให้ logout
+  // (App.jsx ฟัง event นี้อยู่ จะเด้งแจ้งเตือนและพาไปหน้า login)
+  if (res.status === 401 && token) {
+    auth.logout();
+    window.dispatchEvent(
+      new CustomEvent('auth:expired', {
+        detail: data.message || 'เซสชันหมดอายุ',
+      })
+    );
+  }
+
   if (!res.ok) {
     throw new Error(data.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
   }

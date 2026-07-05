@@ -1,30 +1,32 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     if (form.password.length < 6) {
-      setError('รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร');
+      toast.warning(
+        `รหัสผ่านสั้นเกินไป (${form.password.length} ตัวอักษร) — ต้องยาวอย่างน้อย 6 ตัวอักษร`
+      );
       return;
     }
     setLoading(true);
     try {
       await api.register(form);
-      alert('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ');
+      toast.success('สมัครสมาชิกสำเร็จ! เข้าสู่ระบบได้เลย');
       navigate('/login');
     } catch (err) {
-      setError(err.message);
+      toast.error(`สมัครสมาชิกไม่สำเร็จ: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -58,7 +60,6 @@ export default function RegisterPage() {
             required
           />
         </label>
-        {error && <p className="error">{error}</p>}
         <button type="submit" disabled={loading}>
           {loading ? 'กำลังสมัคร...' : 'สมัครสมาชิก'}
         </button>
