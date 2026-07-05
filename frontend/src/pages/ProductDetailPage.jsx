@@ -37,7 +37,13 @@ export default function ProductDetailPage() {
         ← กลับหน้าร้าน
       </Link>
       <div className="card detail-card">
-        <div className="detail-thumb">{CATEGORY_EMOJI[product.category]}</div>
+        <div className="detail-thumb">
+          {product.imageUrl ? (
+            <img src={product.imageUrl} alt={product.name} />
+          ) : (
+            CATEGORY_EMOJI[product.category]
+          )}
+        </div>
         <div className="detail-info">
           <span className="chip">{product.category}</span>
           <h2>{product.name}</h2>

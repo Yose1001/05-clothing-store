@@ -3,6 +3,7 @@ import { api } from '../api';
 import AdminDashboard from './AdminDashboard';
 import {
   CATEGORIES,
+  CATEGORY_EMOJI,
   ORDER_STATUS,
   formatDateTime,
   formatPrice,
@@ -14,6 +15,7 @@ const EMPTY_FORM = {
   category: CATEGORIES[0],
   stock: '',
   description: '',
+  imageUrl: '',
 };
 
 // ลำดับถัดไปของแต่ละสถานะ (ให้ admin กดได้เฉพาะที่ถูกต้อง)
@@ -28,8 +30,10 @@ export default function AdminPage() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [imageFile, setImageFile] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const loadOrders = () =>
     api.getAllOrders().then(setOrders).catch((e) => setError(e.message));
@@ -71,29 +75,47 @@ export default function AdminPage() {
   const submitProduct = async (e) => {
     e.preventDefault();
     setError('');
-    const body = { ...form, price: Number(form.price), stock: Number(form.stock) };
+    setSaving(true);
     try {
+      // ถ้าเลือกรูปใหม่ อัปโหลดก่อน แล้วเอา URL ที่ได้ใส่ในตัวสินค้า
+      let imageUrl = form.imageUrl;
+      if (imageFile) {
+        const uploaded = await api.uploadImage(imageFile);
+        imageUrl = uploaded.url;
+      }
+
+      const body = {
+        ...form,
+        imageUrl,
+        price: Number(form.price),
+        stock: Number(form.stock),
+      };
       if (editingId) {
         await api.updateProduct(editingId, body);
       } else {
         await api.createProduct(body);
       }
       setForm(EMPTY_FORM);
+      setImageFile(null);
       setEditingId(null);
       await loadProducts();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
   const startEdit = (p) => {
     setEditingId(p._id);
+    setImageFile(null);
     setForm({
       name: p.name,
       price: p.price,
       category: p.category,
       stock: p.stock,
       description: p.description,
+      imageUrl: p.imageUrl || '',
     });
   };
 
@@ -243,9 +265,28 @@ export default function AdminPage() {
                   onChange={handleFormChange}
                 />
               </label>
+              <label>
+                รูปสินค้า (jpg / png / webp ไม่เกิน 5MB)
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setImageFile(e.target.files[0] || null)}
+                />
+              </label>
+              {(imageFile || form.imageUrl) && (
+                <img
+                  className="img-preview"
+                  src={imageFile ? URL.createObjectURL(imageFile) : form.imageUrl}
+                  alt="ตัวอย่างรูปสินค้า"
+                />
+              )}
               <div className="row">
-                <button type="submit">
-                  {editingId ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า'}
+                <button type="submit" disabled={saving}>
+                  {saving
+                    ? 'กำลังบันทึก...'
+                    : editingId
+                      ? 'บันทึกการแก้ไข'
+                      : 'เพิ่มสินค้า'}
                 </button>
                 {editingId && (
                   <button
@@ -253,6 +294,7 @@ export default function AdminPage() {
                     className="btn-cancel"
                     onClick={() => {
                       setEditingId(null);
+                      setImageFile(null);
                       setForm(EMPTY_FORM);
                     }}
                   >
@@ -279,7 +321,18 @@ export default function AdminPage() {
                 <tbody>
                   {products.map((p) => (
                     <tr key={p._id}>
-                      <td>{p.name}</td>
+                      <td>
+                        <div className="admin-prod-cell">
+                          {p.imageUrl ? (
+                            <img className="admin-thumb" src={p.imageUrl} alt={p.name} />
+                          ) : (
+                            <span className="admin-thumb admin-thumb-emoji">
+                              {CATEGORY_EMOJI[p.category]}
+                            </span>
+                          )}
+                          {p.name}
+                        </div>
+                      </td>
                       <td>{p.category}</td>
                       <td>{formatPrice(p.price)}</td>
                       <td className={p.stock === 0 ? 'out-of-stock' : ''}>{p.stock}</td>

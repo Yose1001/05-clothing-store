@@ -66,7 +66,13 @@ export default function ProductsPage() {
       <div className="product-grid">
         {data.products.map((p) => (
           <Link to={`/products/${p._id}`} key={p._id} className="product-card">
-            <div className="product-thumb">{CATEGORY_EMOJI[p.category]}</div>
+            <div className="product-thumb">
+              {p.imageUrl ? (
+                <img src={p.imageUrl} alt={p.name} />
+              ) : (
+                CATEGORY_EMOJI[p.category]
+              )}
+            </div>
             <div className="product-info">
               <span className="product-name">{p.name}</span>
               <span className="product-price">{formatPrice(p.price)}</span>

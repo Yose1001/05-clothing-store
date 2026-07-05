@@ -38,6 +38,24 @@ export const api = {
     request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
 
+  // อัปโหลดรูป — ใช้ FormData จึงไม่ผ่าน request() ที่ตั้ง Content-Type เป็น JSON
+  // (browser จะตั้ง multipart/form-data พร้อม boundary ให้เอง)
+  uploadImage: async (file) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch(`${BASE_URL}/uploads`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'อัปโหลดรูปไม่สำเร็จ');
+    }
+    return data; // { url }
+  },
+
   // orders
   createOrder: (body) =>
     request('/orders', { method: 'POST', body: JSON.stringify(body) }),
